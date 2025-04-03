@@ -12,6 +12,6 @@ pymongo[srv]
 bcrypt
 dotenv==0.9.9
 appwrite
-torch
-torchvision
-torchaudio
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0
