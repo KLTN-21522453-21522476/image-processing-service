@@ -1,8 +1,5 @@
 Flask
 Werkzeug
-torch
-torchvision
-torchaudio
 opencv-python
 scipy
 pillow
@@ -15,3 +12,6 @@ pymongo[srv]
 bcrypt
 dotenv==0.9.9
 appwrite
+torch
+torchvision
+torchaudio
