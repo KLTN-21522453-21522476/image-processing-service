@@ -2,11 +2,7 @@
 import os
 import json
 import base64
-from io import BytesIO
 import time
-from appwrite.client import Client
-from appwrite.services.storage import Storage
-from appwrite.id import ID
 
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -75,39 +71,7 @@ def main(context):
         with open(processed_image_path, 'rb') as f:
             processed_image_bytes = f.read()
         processed_image_base64 = base64.b64encode(processed_image_bytes).decode('utf-8')
-        
-        # Upload results to Appwrite Storage if environment variables are set
-        storage_urls = {}
-        if os.environ.get('APPWRITE_ENDPOINT') and os.environ.get('APPWRITE_API_KEY') and os.environ.get('APPWRITE_BUCKET_ID'):
-            try:
-                client = Client()
-                client.set_endpoint(os.environ.get('APPWRITE_ENDPOINT'))
-                client.set_project(os.environ.get('APPWRITE_PROJECT_ID'))
-                client.set_key(os.environ.get('APPWRITE_API_KEY'))
-                
-                storage = Storage(client)
-                
-                # Upload processed image
-                image_file_id = ID.unique()
-                storage.create_file(
-                    bucket_id=os.environ.get('APPWRITE_BUCKET_ID'),
-                    file_id=image_file_id,
-                    file=open(processed_image_path, 'rb')
-                )
-                storage_urls['processed_image'] = f"{os.environ.get('APPWRITE_ENDPOINT')}/storage/buckets/{os.environ.get('APPWRITE_BUCKET_ID')}/files/{image_file_id}/view"
-                
-                # Upload JSON result
-                json_file_id = ID.unique()
-                storage.create_file(
-                    bucket_id=os.environ.get('APPWRITE_BUCKET_ID'),
-                    file_id=json_file_id,
-                    file=open(result_json_path, 'rb')
-                )
-                storage_urls['result_json'] = f"{os.environ.get('APPWRITE_ENDPOINT')}/storage/buckets/{os.environ.get('APPWRITE_BUCKET_ID')}/files/{json_file_id}/view"
-            except Exception as e:
-                # Just log the error, don't fail the function
-                print(f"Error uploading to Appwrite Storage: {str(e)}")
-        
+         
         # Prepare response
         response['success'] = True
         response['message'] = 'Image processed successfully'
@@ -115,7 +79,6 @@ def main(context):
             'result': result_json,
             'processed_image': processed_image_base64,
             'extracted_text': extracted_text,
-            'storage_urls': storage_urls
         }
         
         return context.res.json(response)
