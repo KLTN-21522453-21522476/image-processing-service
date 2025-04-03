@@ -1,0 +1,24 @@
+{
+    "projectId": "67eca511000ac9411da3",
+    "projectName": "Invoice Data Extraction",
+    "functions": [
+        {
+            "$id": "image-processing-function",
+            "name": "Image Processing Function",
+            "runtime": "python-3.10",
+            "execute": ["any"],
+            "events": [],
+            "schedule": "",
+            "timeout": 300,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "src/index.py",
+            "commands": "pip install -r src/requirements.txt",
+            "ignore": [
+                "node_modules",
+                ".npm",
+                ".git"
+            ]
+        }
+    ]
+}
