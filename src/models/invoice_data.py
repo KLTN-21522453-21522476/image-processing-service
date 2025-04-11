@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 class Item:
     def __init__(self, item: str, price: int, quantity: int):

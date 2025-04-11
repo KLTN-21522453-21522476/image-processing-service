@@ -5,12 +5,11 @@ from PIL import Image
 import logging
 from ultralytics.utils.plotting import Annotator
 from ultralytics import YOLO
-from app.utils.Helper import handle_overlapping_boxes, group_aligned_labels, cleanning_text, cleanning_num
 from vietocr.tool.predictor import Predictor
 from vietocr.tool.config import Cfg
-from app.configurations.Config import Config
-from app.dtos.InvoiceDataResponse import Item, StoreData, Bill
-
+from config import Config
+from models.invoice_data import Item, StoreData, Bill
+from utils.helper import handle_overlapping_boxes, group_aligned_labels, cleanning_text, cleanning_num
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -116,7 +115,7 @@ class ImageProcessingService:
             img = annotator.result()  
             cv2.imwrite(processed_image_path, img)
 
-            return result_json
+            return bill.to_dict()
         
         except Exception as e:
             logging.debug(f"{str(e)}")
