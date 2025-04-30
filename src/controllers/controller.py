@@ -4,13 +4,22 @@ from werkzeug.utils import secure_filename
 from config import Config
 from flask import request, json, jsonify, Blueprint
 from services.image_processing import ImageProcessingService
+from services.multi_model_image_processing import MultiModelImageProcessingService
 
 image_processing_bp = Blueprint("image_processing", __name__)
 
 @image_processing_bp.route("/image-process", methods=["POST"])
 def image_process():
-    image_processor = ImageProcessingService()
-
+    
+    model_name = request.args.get('model')
+    if model_name == None:
+        return jsonify({"error": "No selected model"}), 400
+    if model_name == 'yolo8v6':
+        image_processor = ImageProcessingService()
+    else:
+        image_processor = MultiModelImageProcessingService(model_name)
+    
+    
     if 'files' in request.files:
         image_files = request.files.getlist('files') 
         

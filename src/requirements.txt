@@ -8,10 +8,10 @@ ultralytics
 vietocr
 setuptools
 numpy<2.0
-pymongo[srv]
-bcrypt
 dotenv==0.9.9
 appwrite
 torch==2.6.0
 torchvision==0.21.0
 torchaudio==2.6.0
+pydantic
+huggingface_hub

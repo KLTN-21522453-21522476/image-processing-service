@@ -84,3 +84,78 @@ def cleanning_num(num, cls) :
     clean_num = re.sub(r'[^0-9]+', '', final_lower)
         
     return clean_num.strip()
+
+def group_invoice_items(boxes, y_tolerance=15, max_horizontal_gap=None):
+    if not boxes:
+        return []
+    
+    # Bước 1: Nhóm theo vị trí dọc (hàng)
+    rows = {}
+    for i, box in enumerate(boxes):
+        y_center = (box.xyxy[0][1] + box.xyxy[0][3]) / 2
+        assigned = False
+        
+        for row_y in sorted(rows.keys()):
+            if abs(y_center - row_y) <= y_tolerance:
+                rows[row_y].append(box)
+                assigned = True
+                break
+                
+        if not assigned:
+            rows[y_center] = [box]
+    
+    # Bước 2: Xác định hàng chứa mục vs hàng tiêu đề/chân trang
+    item_rows = []
+    header_footer_rows = []
+    
+    for y, row_boxes in rows.items():
+        # Kiểm tra xem hàng này có chứa các lớp liên quan đến mục (0, 6, 7) không
+        classes = [int(box.cls) for box in row_boxes]
+        if any(cls in [0, 6, 7] for cls in classes):
+            item_rows.append((y, row_boxes))
+        else:
+            header_footer_rows.append((y, row_boxes))
+    
+    # Sắp xếp các hàng theo vị trí dọc
+    item_rows.sort(key=lambda x: x[0])
+    
+    # Bước 3: Với mỗi hàng mục, đảm bảo nó có các thành phần cần thiết
+    result_groups = []
+    
+    for _, row_boxes in item_rows:
+        # Sắp xếp các box trong hàng theo vị trí ngang
+        row_boxes.sort(key=lambda box: box.xyxy[0][0])
+        
+        # Xác định các thành phần mục theo lớp
+        item_name_boxes = [box for box in row_boxes if int(box.cls) == 0]
+        price_boxes = [box for box in row_boxes if int(box.cls) == 6]
+        quantity_boxes = [box for box in row_boxes if int(box.cls) == 7]
+        
+        # Tạo nhóm dựa trên các thành phần hiện có
+        if item_name_boxes:
+            for item_box in item_name_boxes:
+                group = [item_box]
+                
+                # Tìm giá và số lượng gần nhất
+                if price_boxes:
+                    closest_price = min(price_boxes, 
+                                       key=lambda box: abs((box.xyxy[0][0] + box.xyxy[0][2])/2 - 
+                                                          (item_box.xyxy[0][0] + item_box.xyxy[0][2])/2))
+                    group.append(closest_price)
+                
+                if quantity_boxes:
+                    closest_quantity = min(quantity_boxes, 
+                                          key=lambda box: abs((box.xyxy[0][0] + box.xyxy[0][2])/2 - 
+                                                             (item_box.xyxy[0][0] + item_box.xyxy[0][2])/2))
+                    group.append(closest_quantity)
+                
+                result_groups.append(group)
+        else:
+            # Xử lý các hàng không có tên mục
+            result_groups.append(row_boxes)
+    
+    # Thêm thông tin tiêu đề/chân trang dưới dạng các nhóm riêng biệt
+    for _, row_boxes in header_footer_rows:
+        result_groups.append(row_boxes)
+    
+    return result_groups
