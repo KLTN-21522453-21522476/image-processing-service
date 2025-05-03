@@ -46,7 +46,7 @@ class MultiModelImageProcessingService:
         config['device'] = 'cpu'
         self.detector = Predictor(config)
     
-    def process_image(self, image_path: str, file_name: str) -> Dict:
+    def process_image(self, image_path: str, file_name: str, model_name: str) -> Dict:
         """
         Process an invoice image to extract structured data.
         
@@ -82,7 +82,7 @@ class MultiModelImageProcessingService:
                 
                 # Group aligned bounding boxes
                 boxes = result.boxes
-                groups = group_invoice_items(boxes, 30)
+                groups = group_invoice_items(boxes, 50)
                 
                 # Process each group of aligned boxes
                 for group in groups:
@@ -110,6 +110,7 @@ class MultiModelImageProcessingService:
             
             # Create invoice object
             invoice = Invoice(
+                model=model_name,
                 fileName=file_name,
                 storeName=store_name,
                 createdDate=created_date,
@@ -209,8 +210,8 @@ class MultiModelImageProcessingService:
         # Clean text based on class
         if cls in [6, 7]:  # Price or quantity
             return cleanning_num(raw_text, cls)
-        elif cls in [0, 1]:  # Text fields
-            return cleanning_text(raw_text, cls)
+        # elif cls in [0, 1]:  # Text fields
+        #     return cleanning_text(raw_text, cls)
         else:
             return raw_text
 

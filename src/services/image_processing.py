@@ -23,7 +23,7 @@ class ImageProcessingService:
         config['device'] = 'cpu'
         self.detector = Predictor(config)
           
-    def process_image(self, image_path, file_name):
+    def process_image(self, image_path, file_name, model_name):
         store_name = ""
         created_date = ""
         id = ""
@@ -104,6 +104,7 @@ class ImageProcessingService:
                 
                 
             invoice = Invoice(
+                model=model_name,
                 fileName=file_name,
                 storeName=store_name,
                 createdDate="",

@@ -7,6 +7,7 @@ class Item(BaseModel):
     quantity: int
 
 class Invoice(BaseModel):
+    model: str
     fileName: str
     storeName: str
     items: List[Item] = []

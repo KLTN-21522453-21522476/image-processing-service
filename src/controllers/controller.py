@@ -33,7 +33,7 @@ def image_process():
             image_file.save(filepath)
             
             try:
-                results = image_processor.process_image(filepath, filename)
+                results = image_processor.process_image(filepath, filename, model_name)
                 response.append(results)                        
             except Exception as e:
                 error_result = ErrorResponse(filename, str(e))
