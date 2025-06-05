@@ -3,6 +3,7 @@ from flask import Flask
 from config import Config
 from controllers.controller import image_processing_bp
 from services.model_downloader import ModelDownloader
+from models_config import ModelsConfig  # Import config models
 
 def create_app():
     app = Flask(__name__)
@@ -10,10 +11,12 @@ def create_app():
     
     os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(Config.RESULT_FOLDER, exist_ok=True)
+    
+    # Initialize downloader
     downloader = ModelDownloader()
     
-    model_list = ["yolo5.pt", "yolo6.pt", "yolo7.pt", "yolo10.pt", "yolo11.pt", "yolo8v6.pt", "yolo8.pt"]
-    downloader.download_models(model_list)
+    # Use centralized model list - NO MORE HARDCODED LIST HERE!
+    downloader.download_models(ModelsConfig.DOWNLOAD_MODEL_LIST)
     
     app.register_blueprint(image_processing_bp)
     

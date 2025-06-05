@@ -12,6 +12,7 @@ from config import Config
 from models.invoice_data import Item, Invoice
 from utils.helper import group_aligned_labels, cleanning_text, cleanning_num, group_invoice_items
 from services.preprocess_image import PreprocessImage
+from models_config import ModelsConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,16 +27,8 @@ class MultiModelImageProcessingService:
         Args:
             model_name: Name of the YOLO model to use. If None, uses default model.
         """
-        # Define available models
-        self.available_models = {
-            'yolo8': 'yolo8.pt',
-            'yolo10': 'yolo10.pt',
-            'yolo11': 'yolo11.pt',
-            'default': 'yolo11.pt'
-        }
-        
-        # Select model file
-        model_file = self.available_models.get(model_name, self.available_models['default'])
+        # Use centralized model configuration
+        model_file = ModelsConfig.get_model_file(model_name)
         
         # Load YOLO model
         model_path = os.path.join(Config.MODELS_FOLDER, model_file, model_file)
@@ -45,6 +38,60 @@ class MultiModelImageProcessingService:
         config = Cfg.load_config_from_name('vgg_transformer')
         config['device'] = 'cpu'
         self.detector = Predictor(config)
+        
+        # Store current model info
+        self.current_model = model_name or 'default'
+        self.current_model_file = model_file
+        
+        # Define class mapping after loading model
+        self.class_field_mapping = {
+            'Item': 'item_name',
+            'Store_name': 'store_name', 
+            'address': 'address',
+            'bill_id': 'invoice_id',
+            'created_date': 'created_date',
+            'price': 'price',
+            'quantity': 'quantity',
+            'amount': 'total_amount',
+            'total': 'total_amount',
+        }
+        
+        # Classes that need numeric processing
+        self.numeric_classes = {'price', 'quantity'}
+        
+        logger.info(f"Initialized with model: {self.current_model} ({self.current_model_file})")
+    
+    def get_available_models(self) -> List[str]:
+        """Get list of available model names."""
+        return ModelsConfig.get_available_model_names()
+    
+    def switch_model(self, model_name: str) -> bool:
+        """
+        Switch to a different YOLO model.
+        
+        Args:
+            model_name: Name of the new model to use
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not ModelsConfig.is_valid_model(model_name):
+            logger.error(f"Invalid model name: {model_name}")
+            return False
+            
+        try:
+            model_file = ModelsConfig.get_model_file(model_name)
+            model_path = os.path.join(Config.MODELS_FOLDER, model_file, model_file)
+            
+            self.model = YOLO(model_path)
+            self.current_model = model_name
+            self.current_model_file = model_file
+            
+            logger.info(f"Switched to model: {model_name} ({model_file})")
+            return True
+        except Exception as e:
+            logger.error(f"Error switching to model {model_name}: {str(e)}")
+            return False
     
     def process_image(self, image_path: str, file_name: str, model_name: str) -> Dict:
         """
@@ -128,17 +175,10 @@ class MultiModelImageProcessingService:
         except Exception as e:
             logger.error(f"Error processing image: {str(e)}", exc_info=True)
             return {"error": str(e)}
-    
+        
     def _process_box_group(self, group: List, img: Image.Image) -> Dict:
         """
         Process a group of bounding boxes to extract relevant data.
-        
-        Args:
-            group: List of bounding boxes
-            img: Original image
-            
-        Returns:
-            Dictionary with extracted data
         """
         result = {
             'item_name': '',
@@ -152,49 +192,30 @@ class MultiModelImageProcessingService:
         
         for bbox in group:
             xmin, ymin, xmax, ymax = bbox.xyxy[0]
-            cls = int(bbox.cls)
+            cls_id = int(bbox.cls)
+            cls_name = self.model.names[cls_id]  # Lấy tên class từ model
             xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
             
-            # Extract text based on class
-            text = self._extract_text_from_box(img, xmin, ymin, xmax, ymax, cls)
+            if cls_name not in self.class_field_mapping:
+                continue
+            # Extract text based on class name
+            text = self._extract_text_from_box(img, xmin, ymin, xmax, ymax, cls_id)
             
-            # Update result based on class
-            if cls == 0 and text:  # Item name
-                result['item_name'] = text
-            elif cls == 1 and text:  # Store name
-                result['store_name'] = text
-            elif cls == 2 and text:  # Address
-                result['address'] = text
-            elif cls == 4 and text:  # Invoice ID
-                result['invoice_id'] = text
-            elif cls == 5 and text:  # Created date
-                result['created_date'] = text
-            elif cls == 6 and text:  # Price
-                result['price'] = text
-            elif cls == 7 and text:  # Quantity
-                result['quantity'] = text
+            if text:
+                field_name = self.class_field_mapping[cls_name]
+                result[field_name] = text
         
         return result
-    
-    def _extract_text_from_box(self, img: Image.Image, xmin: int, ymin: int, xmax: int, ymax: int, cls: int) -> Union[str, int]:
-        """
-        Extract text from a bounding box in the image.
+
+    def _extract_text_from_box(self, img: Image.Image, xmin: int, ymin: int, xmax: int, ymax: int, cls_id: int) -> Union[str, int]:
+        """Extract text from a bounding box in the image."""
+        cls_name = self.model.names[cls_id]
         
-        Args:
-            img: Original image
-            xmin, ymin, xmax, ymax: Bounding box coordinates
-            cls: Class of the detected object
-            
-        Returns:
-            Extracted and cleaned text or number
-        """
-        # Determine padding based on class
-        offset = 8 if cls == 0 else 8
+        # Determine padding based on class name
+        offset = 8  # You can customize this based on class name if needed
         
         # Crop image with padding
         img_temp = img.copy()
-        
-        
         cropped_img = img_temp.crop((xmin-offset, ymin-offset, xmax+offset, ymax+offset))
         
         preprocessor = PreprocessImage()
@@ -205,13 +226,10 @@ class MultiModelImageProcessingService:
         raw_text = self.detector.predict(preprocessed_cropped_image)
         
         if not raw_text:
-            return '' if cls not in [6, 7] else 0
+            return '' if cls_name not in self.numeric_classes else 0
         
-        # Clean text based on class
-        if cls in [6, 7]:  # Price or quantity
-            return cleanning_num(raw_text, cls)
-        # elif cls in [0, 1]:  # Text fields
-        #     return cleanning_text(raw_text, cls)
+        # Clean text based on class name
+        if cls_name in self.numeric_classes:
+            return cleanning_num(raw_text, cls_id)  
         else:
             return raw_text
-

@@ -30,7 +30,7 @@ class ModelDownloader:
         Download YOLO models from Hugging Face if they don't exist locally.
         
         Args:
-            model_ids (list): List of Hugging Face model IDs to download
+            models_list (list): List of model filenames to download
             
         Returns:
             dict: Dictionary mapping model names to their local paths
@@ -38,9 +38,9 @@ class ModelDownloader:
         downloaded_models = {}
         
         for model_name in models_list:
-            # Extract model name from the model_id
             model_path = os.path.join(self.models_folder, model_name, model_name)
             folder_path = os.path.join(self.models_folder, model_name)
+            
             # Check if the model already exists
             if os.path.exists(model_path):
                 self.logger.info(f"Model {model_name} already exists in {self.models_folder}")
