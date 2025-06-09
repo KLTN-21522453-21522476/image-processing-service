@@ -189,18 +189,30 @@ def save_result_file(file_name: str, image_data, save_format: str = 'cv2') -> st
     
     # Add timestamp to result filename
     filename_without_ext = os.path.splitext(file_name)[0]
-    file_ext = os.path.splitext(file_name)[1]
+    file_ext = os.path.splitext(file_name)[1] or '.jpg'  # Default to .jpg if no extension
     timestamped_filename = f"{filename_without_ext}_{timestamp}{file_ext}"
     
     # Create full path
     result_path = os.path.join(Config.RESULT_FOLDER, timestamped_filename)
     
+    # Ensure the result directory exists
+    os.makedirs(Config.RESULT_FOLDER, exist_ok=True)
+    
     # Save the file based on format
-    if save_format == 'cv2':
-        cv2.imwrite(result_path, image_data)
-    elif save_format == 'yolo':
-        image_data.save(filename=result_path)
-    else:
-        raise ValueError(f"Unsupported save format: {save_format}")
+    try:
+        if save_format == 'cv2':
+            if isinstance(image_data, type(cv2.imread('dummy.jpg'))):
+                # Direct OpenCV image
+                cv2.imwrite(result_path, image_data)
+            else:
+                # YOLO result - get the plotted image
+                result_image = image_data.plot()
+                cv2.imwrite(result_path, result_image)
+        elif save_format == 'yolo':
+            # Save raw YOLO result
+            image_data.save(result_path)
+    except Exception as e:
+        print(f"Error saving result file: {str(e)}")
+        return file_name  # Return original filename if save fails
         
     return timestamped_filename

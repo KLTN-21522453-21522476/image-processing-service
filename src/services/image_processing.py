@@ -2,13 +2,15 @@ import os
 import cv2
 from PIL import Image
 import logging
+import datetime
 from ultralytics.utils.plotting import Annotator
 from ultralytics import YOLO
 from vietocr.tool.predictor import Predictor
 from vietocr.tool.config import Cfg
 from config import Config
 from models.invoice_data import Item, Invoice
-from utils.helper import handle_overlapping_boxes, group_aligned_labels, cleanning_text, cleanning_num
+from utils.helper import handle_overlapping_boxes, group_aligned_labels, cleanning_text, cleanning_num, save_result_file
+from services.image_preprocessing.main import PreprocessImage
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -29,8 +31,11 @@ class ImageProcessingService:
         id = ""
         items = []
         try:
-             # Read image and change to RGB
-            img = Image.open(image_path)    
+            # Initialize preprocessor and preprocess image
+            preprocessor = PreprocessImage()
+            img = preprocessor.preprocess_for_detection(image_path)
+            
+            # Run YOLO prediction
             results = self.model.predict(img)
             
             img_copy = img.copy()
@@ -45,7 +50,7 @@ class ImageProcessingService:
                 for group in groups:     
                     item_name = "" 
                     price = 0
-                    quantity = 0                       
+                    quantity = 0
                     
                     for bbox in group:
                         xmin, ymin, xmax, ymax = bbox.xyxy[0]
@@ -102,10 +107,15 @@ class ImageProcessingService:
                         item = Item(item=item_name, price=price, quantity=quantity)
                         items.append(item)
                 
+            # Get the annotated image
+            annotated_img = annotator.result()
+            
+            # Save the image with bounding boxes and get timestamped filename
+            timestamped_filename = save_result_file(file_name, annotated_img, save_format='cv2')
                 
             invoice = Invoice(
                 model=model_name,
-                fileName=file_name,
+                fileName=timestamped_filename,
                 storeName=store_name,
                 createdDate="",
                 id="",
@@ -113,11 +123,7 @@ class ImageProcessingService:
                 approvedBy="",
                 submittedBy="",
                 items=items
-            )   
-            # Save the image with bounding boxes
-            processed_image_path = os.path.join(Config.RESULT_FOLDER, file_name)
-            img = annotator.result()  
-            cv2.imwrite(processed_image_path, img)
+            )
 
             return invoice.model_dump()
         

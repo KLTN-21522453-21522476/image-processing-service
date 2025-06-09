@@ -1,6 +1,7 @@
 import os
 import logging
 from typing import Dict, List, Optional, Tuple, Union
+import datetime
 
 import cv2
 from PIL import Image
@@ -10,8 +11,8 @@ from vietocr.tool.config import Cfg
 
 from config import Config
 from models.invoice_data import Item, Invoice
-from utils.helper import group_aligned_labels, cleanning_text, cleanning_num, group_invoice_items
-from services.preprocess_image import PreprocessImage
+from utils.helper import group_aligned_labels, cleanning_text, cleanning_num, group_invoice_items, save_result_file
+from services.image_preprocessing.main import PreprocessImage
 from models_config import ModelsConfig
 
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +50,7 @@ class MultiModelImageProcessingService:
             'Store_name': 'store_name', 
             'address': 'address',
             'bill_id': 'invoice_id',
-            'created_date': 'created_date',
+            'date': 'created_date',
             'price': 'price',
             'quantity': 'quantity',
             'amount': 'total_amount',
@@ -57,7 +58,7 @@ class MultiModelImageProcessingService:
         }
         
         # Classes that need numeric processing
-        self.numeric_classes = {'price', 'quantity'}
+        self.numeric_classes = {'price', 'quantity', 'amount', 'total'}
         
         logger.info(f"Initialized with model: {self.current_model} ({self.current_model_file})")
     
@@ -104,9 +105,6 @@ class MultiModelImageProcessingService:
         Returns:
             Dictionary containing extracted invoice data
         """
-        # Result file path
-        processed_image_path = os.path.join(Config.RESULT_FOLDER, file_name)
-        
         # Initialize invoice data
         store_name = ""
         created_date = ""
@@ -116,16 +114,17 @@ class MultiModelImageProcessingService:
         items = []
         
         try:
-            # Read image
-            img = Image.open(image_path)
-            
+            # Initialize preprocessor and preprocess image
+            preprocessor = PreprocessImage()
+            img = preprocessor.preprocess_for_detection(image_path)
+
             # Run YOLO detection
-            results = self.model(img, conf=0.4, iou=0.45, max_det=50)
+            results = self.model(img, conf=0.2, iou=0.45, max_det=50)
             
             # Process results
             for result in results:
-                # Save result image
-                result.save(filename=processed_image_path)
+                # Save result image with annotations
+                timestamped_filename = save_result_file(file_name, result, "yolo")
                 
                 # Group aligned bounding boxes
                 boxes = result.boxes
@@ -144,7 +143,9 @@ class MultiModelImageProcessingService:
                         invoice_id = item_data['invoice_id']
                     if item_data.get('address'):
                         address = item_data['address']
-                    
+                    if item_data.get('total_amount'):
+                        total_amount = item_data['total_amount']
+                        
                     # Add item if relevant data exists
                     if any([item_data.get('item_name'), item_data.get('price'), item_data.get('quantity')]):
                         item = Item(
@@ -152,13 +153,12 @@ class MultiModelImageProcessingService:
                             price=item_data.get('price', 0),
                             quantity=item_data.get('quantity', 0)
                         )
-                        total_amount += int(item.price) * int(item.quantity)
                         items.append(item)
             
             # Create invoice object
             invoice = Invoice(
                 model=model_name,
-                fileName=file_name,
+                fileName=timestamped_filename,
                 storeName=store_name,
                 createdDate=created_date,
                 id=invoice_id,
@@ -187,7 +187,8 @@ class MultiModelImageProcessingService:
             'invoice_id': '',
             'created_date': '',
             'price': 0,
-            'quantity': 0
+            'quantity': 0,
+            'total_amount' : 0
         }
         
         for bbox in group:
