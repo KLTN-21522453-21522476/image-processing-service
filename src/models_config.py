@@ -19,6 +19,7 @@ class ModelsConfig:
         "yolo10v2.pt",
         "yolo11.pt",
         "yolo11v2.pt",
+        "yolo10_full_text.pt"
     ]
     
     # Mapping of model aliases to actual model files
@@ -31,6 +32,7 @@ class ModelsConfig:
         'yolo8v2': 'yolo8v2.pt',
         'yolo8v6': 'yolo8v6.pt',
         'yolo10': 'yolo10.pt',
+        'yolo10_full_text': 'yolo10_full_text.pt',
         'yolo10v2': 'yolo10v2.pt',
         'yolo11': 'yolo11.pt',
         'yolo11v2': 'yolo11v2.pt',
