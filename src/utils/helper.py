@@ -1,4 +1,8 @@
 import re
+import os
+import datetime
+import cv2
+from config import Config
 
 
 # Iou
@@ -89,91 +93,114 @@ def group_invoice_items(boxes, y_tolerance=15, max_horizontal_gap=None):
     if not boxes:
         return []
     
-    # Tách boxes theo loại
-    item_boxes = [box for box in boxes if int(box.cls) == 0]
-    price_boxes = [box for box in boxes if int(box.cls) == 6]
-    quantity_boxes = [box for box in boxes if int(box.cls) == 7]
-    other_boxes = [box for box in boxes if int(box.cls) not in [0, 6, 7]]
+    # Get class indices from the first box's model
+    item_class_idx = 0  # Item class index
+    price_class_idx = 6  # Price class index
+    quantity_class_idx = 7  # Quantity class index
     
-    # Nếu không có item boxes, trả về kết quả rỗng hoặc xử lý khác
+    # Separate boxes by type
+    item_boxes = [box for box in boxes if int(box.cls) == item_class_idx]
+    price_boxes = [box for box in boxes if int(box.cls) == price_class_idx]
+    quantity_boxes = [box for box in boxes if int(box.cls) == quantity_class_idx]
+    other_boxes = [box for box in boxes if int(box.cls) not in [item_class_idx, price_class_idx, quantity_class_idx]]
+    
+    # If no item boxes, return other boxes or empty list
     if not item_boxes:
         return [other_boxes] if other_boxes else []
     
-    # Sắp xếp các item boxes theo tọa độ y (từ trên xuống dưới)
+    # Sort item boxes by y-coordinate (top to bottom)
     item_boxes.sort(key=lambda box: (box.xyxy[0][1] + box.xyxy[0][3]) / 2)
     
-    # Tạo các nhóm kết quả
+    # Create result groups
     result_groups = []
     
-    # Xử lý từng item box
-    for i in range(len(item_boxes)):
-        current_item = item_boxes[i]
+    # Process each item box
+    for i, current_item in enumerate(item_boxes):
         current_y = (current_item.xyxy[0][1] + current_item.xyxy[0][3]) / 2
         
-        # Tìm item tiếp theo gần nhất (nếu có)
+        # Find distance to next item (if any)
         next_item_distance = float('inf')
         if i < len(item_boxes) - 1:
             next_item = item_boxes[i + 1]
             next_item_y = (next_item.xyxy[0][1] + next_item.xyxy[0][3]) / 2
             next_item_distance = abs(next_item_y - current_y)
         
-        # Tạo nhóm mới với item hiện tại
+        # Create new group with current item
         group = [current_item]
         
-        # Tìm price và quantity phù hợp cho item hiện tại
+        # Find matching price and quantity
+        # Use smaller y_tolerance to ensure tighter grouping
+        y_tolerance = min(y_tolerance, next_item_distance * 0.5 if next_item_distance < float('inf') else y_tolerance)
+        
+        # Find closest price box within tolerance
         matching_price = None
-        matching_quantity = None
-        
-        # Lọc các box price và quantity có y-coordinate không cao hơn item hiện tại
-        # và thấp hơn item tiếp theo (nếu có)
-        candidate_prices = []
-        candidate_quantities = []
-        
+        min_price_distance = float('inf')
         for price_box in price_boxes:
             price_y = (price_box.xyxy[0][1] + price_box.xyxy[0][3]) / 2
-            # Price phải không cao hơn item hiện tại và thấp hơn item tiếp theo
-            if abs(price_y - current_y) <= next_item_distance and (i == len(item_boxes) - 1 or price_y < next_item_y):
-                candidate_prices.append(price_box)
+            distance = abs(price_y - current_y)
+            if distance <= y_tolerance and distance < min_price_distance:
+                matching_price = price_box
+                min_price_distance = distance
         
+        # Find closest quantity box within tolerance
+        matching_quantity = None
+        min_quantity_distance = float('inf')
         for quantity_box in quantity_boxes:
             quantity_y = (quantity_box.xyxy[0][1] + quantity_box.xyxy[0][3]) / 2
-            # Quantity phải không cao hơn item hiện tại và thấp hơn item tiếp theo
-            if abs(quantity_y - current_y) <= next_item_distance and (i == len(item_boxes) - 1 or quantity_y < next_item_y):
-                candidate_quantities.append(quantity_box)
+            distance = abs(quantity_y - current_y)
+            if distance <= y_tolerance and distance < min_quantity_distance:
+                matching_quantity = quantity_box
+                min_quantity_distance = distance
         
-        # Nếu có các ứng viên, chọn price và quantity gần nhất với item hiện tại
-        if candidate_prices:
-            matching_price = min(candidate_prices, 
-                               key=lambda box: abs((box.xyxy[0][1] + box.xyxy[0][3])/2 - current_y))
+        # Add matching boxes to group
+        if matching_price:
             group.append(matching_price)
-        
-        if candidate_quantities:
-            matching_quantity = min(candidate_quantities, 
-                                  key=lambda box: abs((box.xyxy[0][1] + box.xyxy[0][3])/2 - current_y))
-            group.append(matching_quantity)
-        
-        # Nếu có cả price và quantity, tính khoảng cách B giữa chúng
-        if matching_price and matching_quantity:
-            price_y = (matching_price.xyxy[0][1] + matching_price.xyxy[0][3]) / 2
-            quantity_y = (matching_quantity.xyxy[0][1] + matching_quantity.xyxy[0][3]) / 2
-            distance_B = abs(price_y - quantity_y)
+            # Remove used price box to prevent reuse
+            price_boxes.remove(matching_price)
             
-            # Nếu khoảng cách B quá lớn so với khoảng cách A (giữa các item), 
-            # có thể loại bỏ price hoặc quantity không phù hợp
-            if next_item_distance != float('inf') and distance_B > next_item_distance * 0.8:
-                # Loại bỏ box xa nhất so với item
-                price_distance = abs(price_y - current_y)
-                quantity_distance = abs(quantity_y - current_y)
-                
-                if price_distance > quantity_distance:
-                    group.remove(matching_price)
-                else:
-                    group.remove(matching_quantity)
+        if matching_quantity:
+            group.append(matching_quantity)
+            # Remove used quantity box to prevent reuse
+            quantity_boxes.remove(matching_quantity)
         
         result_groups.append(group)
     
-    # Thêm các box khác vào kết quả
-    if other_boxes:
-        result_groups.append(other_boxes)
+    # Add remaining boxes as a separate group
+    remaining_boxes = price_boxes + quantity_boxes + other_boxes
+    if remaining_boxes:
+        result_groups.append(remaining_boxes)
     
     return result_groups
+
+def save_result_file(file_name: str, image_data, save_format: str = 'cv2') -> str:
+    """
+    Save a result file with timestamp in the filename.
+    
+    Args:
+        file_name: Original filename
+        image_data: Image data to save (can be cv2 image or YOLO result)
+        save_format: Format to save in ('cv2' or 'yolo')
+        
+    Returns:
+        str: The timestamped filename that was used
+    """
+    # Generate timestamp
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Add timestamp to result filename
+    filename_without_ext = os.path.splitext(file_name)[0]
+    file_ext = os.path.splitext(file_name)[1]
+    timestamped_filename = f"{filename_without_ext}_{timestamp}{file_ext}"
+    
+    # Create full path
+    result_path = os.path.join(Config.RESULT_FOLDER, timestamped_filename)
+    
+    # Save the file based on format
+    if save_format == 'cv2':
+        cv2.imwrite(result_path, image_data)
+    elif save_format == 'yolo':
+        image_data.save(filename=result_path)
+    else:
+        raise ValueError(f"Unsupported save format: {save_format}")
+        
+    return timestamped_filename
