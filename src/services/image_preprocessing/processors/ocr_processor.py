@@ -110,22 +110,22 @@ class OCRProcessor:
             raise ValueError(f"Failed to read image: {image_path}")
             
         try:
-            # Sửa orientation
-            corrected_img, orientation_angle, orientation_info = self.orientation_corrector.correct_orientation(
-                cv_img, method='auto', force_correction=True
-            )
-            
-            if orientation_info['corrected']:
-                logging.info(f"Orientation corrected by {orientation_angle} degrees")
-                cv_img = corrected_img
-            
-            # Sửa skew
+            # Sửa skew trước
             corrected_img, skew_angle, skew_info = self.skew_corrector.correct_skew_advanced(
                 cv_img, method='auto', force_correction=True
             )
             
             if skew_info['corrected']:
                 logging.info(f"Skew corrected by {skew_angle:.2f} degrees")
+                cv_img = corrected_img
+            
+            # Sau đó sửa orientation
+            corrected_img, orientation_angle, orientation_info = self.orientation_corrector.correct_orientation(
+                cv_img, method='auto', force_correction=True
+            )
+            
+            if orientation_info['corrected']:
+                logging.info(f"Orientation corrected by {orientation_angle} degrees")
                 cv_img = corrected_img
             
             # Chuyển sang PIL Image

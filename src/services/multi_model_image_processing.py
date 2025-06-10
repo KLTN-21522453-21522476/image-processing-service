@@ -11,7 +11,7 @@ from vietocr.tool.config import Cfg
 
 from config import Config
 from models.invoice_data import Item, Invoice
-from utils.helper import group_aligned_labels, cleanning_text, cleanning_num, group_invoice_items, save_result_file
+from utils.helper import group_aligned_labels, cleanning_text, cleanning_num, group_invoice_items, save_result_file, handle_overlapping_boxes
 from services.image_preprocessing.main import PreprocessImage
 from models_config import ModelsConfig
 
@@ -121,14 +121,20 @@ class MultiModelImageProcessingService:
             # Run YOLO detection
             results = self.model(img, conf=0.2, iou=0.45, max_det=50)
             
+            class_names = {}
+            for cls_id, cls_name in self.model.names.items():
+                class_names[cls_id] = cls_name
+            
             # Process results
             for result in results:
+                boxes = result.boxes
+                filtered_boxes = handle_overlapping_boxes(boxes, class_names, iou_threshold=0.9)
                 # Save result image with annotations
                 timestamped_filename = save_result_file(file_name, result, "yolo")
                 
                 # Group aligned bounding boxes
-                boxes = result.boxes
-                groups = group_invoice_items(boxes, 50)
+                groups = group_invoice_items(filtered_boxes, class_names=class_names, y_tolerance=70)
+
                 
                 # Process each group of aligned boxes
                 for group in groups:
@@ -219,12 +225,12 @@ class MultiModelImageProcessingService:
         img_temp = img.copy()
         cropped_img = img_temp.crop((xmin-offset, ymin-offset, xmax+offset, ymax+offset))
         
-        preprocessor = PreprocessImage()
-        processed_cv_image = preprocessor.process_image_for_ocr(cropped_img)
-        preprocessed_cropped_image = preprocessor.cv_to_pil(processed_cv_image)
+        # preprocessor = PreprocessImage()
+        # processed_cv_image = preprocessor.process_image_for_ocr(cropped_img)
+        # preprocessed_cropped_image = preprocessor.cv_to_pil(processed_cv_image)
         
         # Extract text using OCR
-        raw_text = self.detector.predict(preprocessed_cropped_image)
+        raw_text = self.detector.predict(cropped_img)
         
         if not raw_text:
             return '' if cls_name not in self.numeric_classes else 0
