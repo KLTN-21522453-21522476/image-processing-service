@@ -9,47 +9,22 @@ class ModelsConfig:
     
     # List of all models to download
     DOWNLOAD_MODEL_LIST = [
-        "YOLOv10_last_NV.pt",
-        "YOLOv11_last_NV.pt",
-        "YOLOv8_last_NV.pt",
-        "last-YOLO11.pt",
-        "last-YOLO10.pt",
-        "last-YOLO8.pt",
-        "yolo10.pt",
-        "yolo10v2.pt",
-        "yolo11.pt",
-        "yolo11v2.pt",
-        "yolo5.pt",
-        "yolo6.pt",
-        "yolo7.pt",
+        "YOLO10v2.pt",
+        "YOLO11v2.pt",
         "yolo8.pt",
-        "yolo8v2.pt",
+        "YOLO8v3.pt",
         "yolo8v6.pt",
-        "yolo9.pt",
     ]
 
     
     # Mapping of model aliases to actual model files
     # This allows users to use friendly names instead of exact filenames
     AVAILABLE_MODELS = {
-        'yolo5': 'yolo5.pt',
-        'yolo6': 'yolo6.pt',
-        'yolo7': 'yolo7.pt',
-        'yolo8': 'yolo8.pt',
-        'yolo8v2': 'yolo8v2.pt',
+        'yolo8': 'YOLO8v3.pt',
         'yolo8v6': 'yolo8v6.pt',
-        'yolo9': 'yolo9.pt',
-        'yolo10': 'yolo10.pt',
-        'yolo10v2': 'yolo10v2.pt',
-        'yolo11': 'yolo11.pt',
-        'yolo11v2': 'yolo11v2.pt',
-        'YOLOv8_last_NV': 'YOLOv8_last_NV.pt',
-        'YOLOv10_last_NV': 'YOLOv10_last_NV.pt',
-        'YOLOv11_last_NV': 'YOLOv11_last_NV.pt',
-        'last_yolo8': 'last-YOLO8.pt',
-        'last_yolo10': 'last-YOLO10.pt',
-        'last_yolo11': 'last-YOLO11.pt',
-        'default': 'yolo11.pt'
+        'yolo10': 'YOLO10v2.pt',
+        'yolo11': 'yolo11v2.pt',
+        'default': 'yolo11v2.pt'
     }
 
     @classmethod
