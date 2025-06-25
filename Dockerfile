@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 
 COPY src/requirements.txt /app/
 
-RUN pip install --no-cache-dir --timeout=1000 -r requirements.txt
+RUN pip install --no-cache-dir --timeout=10000 -r requirements.txt
 
 COPY src/ /app/
 
