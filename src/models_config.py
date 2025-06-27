@@ -9,10 +9,10 @@ class ModelsConfig:
     
     # List of all models to download
     DOWNLOAD_MODEL_LIST = [
-        "YOLOv10v2.pt",
-        "YOLOv11v2.pt",
+        "yolov10v2.pt",
+        "yolov11v2.pt",
         "yolo8.pt",
-        "YOLO8v3.pt",
+        "yolov8v3.pt",
         "yolo8v6.pt",
     ]
 
@@ -20,11 +20,11 @@ class ModelsConfig:
     # Mapping of model aliases to actual model files
     # This allows users to use friendly names instead of exact filenames
     AVAILABLE_MODELS = {
-        'yolo8': 'YOLO8v3.pt',
+        'yolo8': 'yolov8v3.pt',
         'yolo8v6': 'yolo8v6.pt',
-        'yolo10': 'YOLOv10v2.pt',
+        'yolo10': 'yolov10v2.pt',
         'yolo11': 'yolov11v2.pt',
-        'default': 'yolo11v2.pt'
+        'default': 'yolov11v2.pt'
     }
 
     @classmethod

@@ -119,7 +119,8 @@ class MultiModelImageProcessingService:
             img = preprocessor.preprocess_for_detection(image_path)
 
             # Run YOLO detection
-            results = self.model(img, conf=0.2, iou=0.45, max_det=50)
+            # results = self.model(img, conf=0.2, iou=0.45, max_det=50)
+            results = self.model.predict(img)
             
             class_names = {}
             for cls_id, cls_name in self.model.names.items():
